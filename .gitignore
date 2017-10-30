@@ -1,0 +1,5 @@
+*.iml
+logs/
+target/
+.idea/
+src/main/webapp/VAADIN/themes/mytheme/*.css

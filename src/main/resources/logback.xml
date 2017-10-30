@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+	<property name="logback.path" value="${logback.path:-logs}" />
+
+	<property name="logback.pattern.light" value="[%d{HH:mm:ss}] [%-5p] %msg %ex%n" />
+	<property name="logback.pattern.full" value="[%d{yy-MM-dd HH:mm:ss.SSS}] [%-5p] (%-25c{0} %3L\\) %msg %ex{full}%n" />
+	<property name="logback.path" value="${logback.path:-logs}" />
+
+	<property name="log.level" value="${log.level:-TRACE}" />
+
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+			<level>${log.level}</level>
+		</filter>
+
+		<encoder>
+			<pattern>${logback.pattern.light}</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${logback.path}/server.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${logback.path}/server_%d{yyyy-MM-dd}.log</fileNamePattern>
+			<maxHistory>30</maxHistory>
+		</rollingPolicy>
+
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+			<level>${log.level}</level>
+		</filter>
+
+		<encoder>
+			<pattern>${logback.pattern.full}</pattern>
+		</encoder>
+	</appender>
+
+	<logger name="org.eclipse.jetty" level="WARN" />
+
+	<root level="${log.level}">
+		<appender-ref ref="STDOUT" />
+		<appender-ref ref="FILE" />
+	</root>
+</configuration>
