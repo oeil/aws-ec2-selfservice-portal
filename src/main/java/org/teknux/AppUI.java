@@ -2,13 +2,18 @@ package org.teknux;
 
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceState;
 import com.amazonaws.services.ec2.model.InstanceStateChange;
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
 import com.vaadin.event.selection.SelectionEvent;
+import com.vaadin.icons.VaadinIcons;
+import com.vaadin.server.FontIcon;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.shared.communication.PushMode;
 import com.vaadin.ui.*;
+import com.vaadin.ui.renderers.HtmlRenderer;
+import com.vaadin.ui.themes.ValoTheme;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.teknux.api.fetcher.Ec2Fetcher;
@@ -71,7 +76,7 @@ public class AppUI extends UI {
         regionsComboBox.setItemCaptionGenerator(new RegionCaptionGenerator());
         regionsComboBox.setItems(regions(Regions.GovCloud));
         regionsComboBox.setSelectedItem(Regions.US_EAST_1);
-        regionsComboBox.setWidth(200, Unit.PIXELS);
+        regionsComboBox.setWidth(250, Unit.PIXELS);
         regionsComboBox.addSelectionListener(event -> doRefresh());
         regionsComboBox.setEnabled(false);
         regionsComboBox.setPageLength(25);
@@ -85,24 +90,64 @@ public class AppUI extends UI {
         topLayout.addComponents(topButtonsLayout);
         topLayout.setComponentAlignment(topButtonsLayout, Alignment.MIDDLE_RIGHT);
 
-        startButton = new Button("Start");
-        startButton.addStyleName("primary");
+        startButton = createButton("Start", event -> doStart(instancesGrid.getSelectedItems()));
+        startButton.addStyleName(ValoTheme.BUTTON_PRIMARY);
         startButton.setEnabled(false);
-        startButton.addClickListener(event -> doStart(instancesGrid.getSelectedItems()));
 
-        stopButton = new Button("Stop");
-        stopButton.addStyleName("danger");
+        stopButton = createButton("Stop", event -> doStop(instancesGrid.getSelectedItems()));
+        stopButton.addStyleName(ValoTheme.BUTTON_DANGER);
         stopButton.setEnabled(false);
-        stopButton.addClickListener(event -> doStop(instancesGrid.getSelectedItems()));
 
         topButtonsLayout.addComponents(startButton, stopButton);
 
         // ec2 instances grid
         instancesGrid = new Grid<>();
         instancesGrid.addColumn(Instance::getTags, tags -> tags.stream().filter(tag -> tag.getKey().toLowerCase().equals("name")).findFirst().get().getValue()).setCaption("Name");
+        instancesGrid.addColumn(Instance::getState, instanceState -> {
+            final Ec2States ec2States= Ec2States.fromCode(instanceState.getCode()).get();
+            FontIcon icon = VaadinIcons.QUESTION;
+            if (ec2States != null) {
+                switch (ec2States) {
+                    case PENDING:
+                        icon = VaadinIcons.HOURGLASS;
+                        break;
+                    case RUNNING:
+                        icon = VaadinIcons.CHECK_CIRCLE;
+                        break;
+                    case STOPPED:
+                        icon = VaadinIcons.CIRCLE_THIN;
+                        break;
+                    case STOPPING:
+                        icon = VaadinIcons.CIRCLE;
+                        break;
+                    case TERMINATED:
+                        icon = VaadinIcons.CLOSE_CIRCLE_O;
+                        break;
+                }
+            }
+            return icon.getHtml() + String.format("<span>%s</span>", instanceState.getName());
+        }, new HtmlRenderer()).setCaption("State");
         instancesGrid.addColumn(Instance::getInstanceId).setCaption("Id");
-        instancesGrid.addColumn(Instance::getState, instanceState -> instanceState.getName()).setCaption("State");
         instancesGrid.addColumn(Instance::getPublicIpAddress).setCaption("IPv4 Public IP");
+
+        instancesGrid.setStyleGenerator(instance -> {
+            final Ec2States state = Ec2States.fromCode(instance.getState().getCode()).get();
+            if (state != null) {
+                switch (state) {
+                    case PENDING:
+                        return "style-line-ec2-instance-pending";
+                    case RUNNING:
+                        return "style-line-ec2-instance-running";
+                    case STOPPED:
+                        return "style-line-ec2-instance-stopped";
+                    case STOPPING:
+                        return "style-line-ec2-instance-stopping";
+                    case TERMINATED:
+                        return "style-line-ec2-instance-terminated";
+                }
+            }
+            return null;
+        });
         instancesGrid.setHeight(100, Unit.PERCENTAGE);
         instancesGrid.setWidth(100, Unit.PERCENTAGE);
         instancesGrid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -110,10 +155,17 @@ public class AppUI extends UI {
         instancesGrid.addItemClickListener(event -> {
             final Instance clickedInstance = event.getItem();
             if (clickedInstance != null) {
+                final Set<Instance> selection = instancesGrid.getSelectedItems();
                 instancesGrid.deselectAll();
-                instancesGrid.select(clickedInstance);
+                if (!selection.contains(clickedInstance) || selection.size() > 1) {
+                    instancesGrid.select(clickedInstance);
+                } else {
+                    this.focus();
+                }
             }
         });
+        instancesGrid.setColumnReorderingAllowed(true);
+        instancesGrid.getColumns().stream().forEach(instanceColumn -> instanceColumn.setHidable(true));
         instancesGrid.setVisible(false);
 
         lastupdateLabel = new Label();
@@ -129,6 +181,13 @@ public class AppUI extends UI {
         setupStopTasks();
         setupRefreshTasks();
         doRefresh();
+    }
+
+    private static Button createButton(String caption, Button.ClickListener clickListener) {
+        Button button = new Button(caption);
+        //button.addStyleNames(MaterialTheme.BUTTON_ROUND);
+        button.addClickListener(clickListener);
+        return button;
     }
 
     private void setupRefreshTasks() {

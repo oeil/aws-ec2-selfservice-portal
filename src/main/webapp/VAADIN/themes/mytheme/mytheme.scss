@@ -1,31 +1,62 @@
-//https://vaadin.com/docs/v8/framework/articles/ValoExamples.html
-//https://demo.vaadin.com/valo-theme/
+//https://vaadin.com/directory/component/material
 
-//--
-$v-app-loading-text: "Loading AWS Self Service";
-$v-background-color: #444d50;
-$v-focus-color: #07a9ca;
-$v-focus-style: 0 0 3px 2px $v-focus-color;
-$v-bevel-depth: 40%;
-$v-gradient: v-linear 12%;
-$v-border-radius: 10px;
-$v-font-family: Roboto, sans-serif;
-$v-font-weight: 400;
-$v-font-weight--header: 400;
-$v-bevel: inset 0 1px 2px v-tint, inset 0 0 1px (v-tint 0.1);
-$v-shadow: 0 0 0 3px rgba(0,0,0,0.32), 0 1px 0 3px rgba(255,255,255,0.14);
-$v-textfield-bevel: inset 0 2px 2px v-shade;
-$v-textfield-shadow: $v-shadow;
-$v-unit-size: 40px;
-$v-overlay-shadow: 0 0 0 3px (v-shade 8), 0 5px 10px (v-shade 4);
-$v-component-group-spacing: 6px;
-//--
+$mat-background-color: #f0f2f2; // #fafafa for a light and #303030 for a dark theme
+$v-focus-color: #2b89b9; //#00BCD4; // (You can find colors at materialpalette.com) $v-focus-color is supposed to be your accent color
+// Note: " ... Using colors from the Material Design palette is optional. ... "
 
-@import "../valo/valo.scss";
+$v-font-family: NotoSans;
+
+$color-red-error: #FF3746;
+$color-green-success: #4BBF77;
+$color-blue-normal: #1696EF;
+$color-orange-warn-draken: #FF8D00;
+$color-orange-warn: #FFA33F;
+$color-grey-darken: #5A5A5A;
+$color-grey: #9F9F9F;
+$color-magenta-zombie: #DB0BE6;
+
+$color-ec2-instance-pending: $color-blue-normal;
+$color-ec2-instance-running: $color-green-success;
+$color-ec2-instance-stopped: $color-grey;
+$color-ec2-instance-stopping: $color-grey-darken;
+$color-ec2-instance-terminated: $color-magenta-zombie;
+
+@import "../material/material.scss";
 
 @mixin mytheme {
-  @include valo;
+  @include material;
 
   // Insert your own theme rules here
+  .v-grid-sidebar.v-contextmenu {
+    z-index: 10;
+  }
 
+  //grid
+  .v-grid-column-header-content {
+    color: $v-focus-color;
+    font-size: larger;
+  }
+
+  .v-grid-row:not(.v-grid-row-selected) {
+    &.style-line-ec2-instance-pending .v-grid-cell {
+      color: $color-ec2-instance-pending;
+      font-weight: 400;
+    }
+    &.style-line-ec2-instance-running .v-grid-cell {
+      color: $color-ec2-instance-running;
+      font-weight: 400;
+    }
+    &.style-line-ec2-instance-stopped .v-grid-cell {
+      color: $color-ec2-instance-stopped;
+      font-weight: 100;
+    }
+    &.style-line-ec2-instance-stopping .v-grid-cell {
+      color: $color-ec2-instance-stopping;
+      font-weight: 200;
+    }
+    &.style-line-ec2-instance-terminated .v-grid-cell {
+      color: $color-ec2-instance-terminated;
+      font-weight: 300;
+    }
+  }
 }
