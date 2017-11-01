@@ -65,7 +65,7 @@ public class AppServlet extends VaadinServlet implements SessionInitListener, Se
 
     @Override
     public void sessionInit(final SessionInitEvent event) throws com.vaadin.server.ServiceException {
-        event.getSession().getSession().setMaxInactiveInterval(10);
+        event.getSession().getSession().setMaxInactiveInterval(60);
     }
 
     @Override

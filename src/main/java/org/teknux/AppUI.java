@@ -2,7 +2,6 @@ package org.teknux;
 
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceState;
 import com.amazonaws.services.ec2.model.InstanceStateChange;
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
@@ -77,7 +76,10 @@ public class AppUI extends UI {
         regionsComboBox.setItems(regions(Regions.GovCloud));
         regionsComboBox.setSelectedItem(Regions.US_EAST_1);
         regionsComboBox.setWidth(250, Unit.PIXELS);
-        regionsComboBox.addSelectionListener(event -> doRefresh());
+        regionsComboBox.addSelectionListener(event -> {
+            instancesGrid.deselectAll();
+            doRefresh();
+        });
         regionsComboBox.setEnabled(false);
         regionsComboBox.setPageLength(25);
         topLayout.addComponent(regionsComboBox);
@@ -241,7 +243,7 @@ public class AppUI extends UI {
         };
 
         //configure overall recurrent task (background data fetch + ui update)
-        stopInstanceTask = new LongRunningTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid);
+        stopInstanceTask = new LongRunningTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid)  ;
     }
 
     private List<Regions> regions(Regions... exclude) {
