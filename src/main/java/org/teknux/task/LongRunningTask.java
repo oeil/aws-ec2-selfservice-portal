@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.ref.WeakReference;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LongRunningTask<Result> implements Runnable {
 
@@ -20,28 +19,18 @@ public class LongRunningTask<Result> implements Runnable {
     private WeakReference<Component> weakUI;
     private CancelListener cancelListener;
 
-    private volatile AtomicBoolean isCancelling;
-
     public LongRunningTask(Callable<Result> longOperation, LongRunningTaskCallback<Result> uiCallback, Component ui) {
         this.actualWork = longOperation;
         this.weakCallback = new WeakReference<>(uiCallback);
         this.weakUI = new WeakReference<>(ui);
-        this.isCancelling = new AtomicBoolean(false);
     }
 
     @Override
     public void run() {
-        if (isCancelling.get()) {
-            return;
-        }
-
         try {
             LOG.trace("### About to run Background Task ###");
             Result longRunningOperationResult = actualWork.call();
             LOG.trace("### Background Task Done ###");
-            if (isCancelling.get()) {
-                return;
-            }
 
             final LongRunningTaskCallback<Result> callback = weakCallback.get();
             final Component uiComponent = weakUI.get();
@@ -52,9 +41,6 @@ public class LongRunningTask<Result> implements Runnable {
                     callback.done(longRunningOperationResult);
                     LOG.trace("### UI Task Done ###");
 
-                    if (isCancelling.get()) {
-                        return;
-                    }
                     final PushMode pushMode = ui.getPushConfiguration().getPushMode();
                     if (PushMode.MANUAL.equals(pushMode)) {
                         ui.push();
@@ -76,7 +62,6 @@ public class LongRunningTask<Result> implements Runnable {
     }
 
     protected void doCancel() {
-        isCancelling.set(true);
         if (cancelListener != null) {
             cancelListener.cancel(this);
         }
@@ -84,10 +69,6 @@ public class LongRunningTask<Result> implements Runnable {
 
     public void setCancelListener(CancelListener cancelListener) {
         this.cancelListener = cancelListener;
-    }
-
-    public interface PreRunTask {
-        void run();
     }
 
     public interface LongRunningTaskCallback<Result> {

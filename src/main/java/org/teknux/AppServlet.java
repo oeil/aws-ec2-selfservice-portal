@@ -4,8 +4,12 @@ import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.teknux.service.IServiceManager;
 import org.teknux.service.ServiceManager;
+import org.teknux.service.background.BackgroundServiceImpl;
+import org.teknux.service.background.IBackgroundService;
 
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
 import javax.servlet.annotation.WebServlet;
@@ -38,7 +42,7 @@ public class AppServlet extends VaadinServlet implements SessionInitListener, Se
             serviceManager = new ServiceManager();
             getServletContext().setAttribute(CONTEXT_ATTRIBUTE_SERVICE_MANAGER, serviceManager);
 
-            //serviceManager.addService(IService.class, new Service());
+            serviceManager.addService(IBackgroundService.class, new BackgroundServiceImpl());
 
             serviceManager.start();
 
@@ -65,10 +69,14 @@ public class AppServlet extends VaadinServlet implements SessionInitListener, Se
 
     @Override
     public void sessionInit(final SessionInitEvent event) throws com.vaadin.server.ServiceException {
-        event.getSession().getSession().setMaxInactiveInterval(60);
+        event.getSession().getSession().setMaxInactiveInterval(30);
     }
 
     @Override
     public void sessionDestroy(SessionDestroyEvent event) {
+    }
+
+    public static IServiceManager getServiceManager(ServletContext servletContext) {
+        return (IServiceManager) servletContext.getAttribute(CONTEXT_ATTRIBUTE_SERVICE_MANAGER);
     }
 }

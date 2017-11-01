@@ -9,16 +9,19 @@ import com.vaadin.event.selection.SelectionEvent;
 import com.vaadin.icons.VaadinIcons;
 import com.vaadin.server.FontIcon;
 import com.vaadin.server.VaadinRequest;
+import com.vaadin.server.VaadinServlet;
 import com.vaadin.shared.communication.PushMode;
 import com.vaadin.ui.*;
 import com.vaadin.ui.renderers.HtmlRenderer;
 import com.vaadin.ui.themes.ValoTheme;
+import de.akquinet.engineering.vaadin.timerextension.TimerExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.teknux.api.fetcher.Ec2Fetcher;
 import org.teknux.api.model.Ec2States;
+import org.teknux.service.IServiceManager;
+import org.teknux.service.background.IBackgroundService;
 import org.teknux.task.LongRunningTask;
-import org.teknux.task.LongRunningTaskExecutor;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -27,8 +30,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,8 +41,6 @@ public class AppUI extends UI {
 
     private static final Logger LOG = LoggerFactory.getLogger(AppUI.class);
 
-    private static ScheduledExecutorService executor = new LongRunningTaskExecutor(255);
-
     private LongRunningTask.LongRunningTaskCallback<Set<Instance>> uiPostProcess;
     private LongRunningTask<Set<Instance>> refreshTask;
 
@@ -50,6 +49,8 @@ public class AppUI extends UI {
 
     private LongRunningTask.LongRunningTaskCallback<List<InstanceStateChange>> stopUiPostProcess;
     private LongRunningTask<List<InstanceStateChange>> stopInstanceTask;
+
+    private TimerExtension timerExtension;
 
     private ComboBox<Regions> regionsComboBox;
     private Button startButton;
@@ -193,6 +194,10 @@ public class AppUI extends UI {
     }
 
     private void setupRefreshTasks() {
+        timerExtension = TimerExtension.create(this);
+        timerExtension.setIntervalInMs(30*1000);
+        timerExtension.addTimerListener(timerEvent -> doRefresh());
+
         Callable<Set<Instance>> backgroundTask = () -> Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).getInstances();
 
         //configure ui required handling after background task is done
@@ -206,8 +211,10 @@ public class AppUI extends UI {
             if (selectedItems != null) {
                 selectedItems.forEach(instance -> instancesGrid.select(instance));
             }
+
             lastupdateLabel.setValue(String.format("Lastupdate at %s", LocalDateTime.now().format(DateTimeFormatter.ISO_TIME).toString()));
             regionsComboBox.setEnabled(true);
+            timerExtension.start();
         };
 
         //configure overall recurrent task (background data fetch + ui update)
@@ -251,11 +258,17 @@ public class AppUI extends UI {
     }
 
     private void doRefresh() {
+        if (timerExtension.isStarted()) {
+            timerExtension.stop();
+        }
+
         lastupdateLabel.setValue("loading ...");
         regionsComboBox.setEnabled(false);
         startButton.setEnabled(false);
         stopButton.setEnabled(false);
-        executor.scheduleAtFixedRate(refreshTask, 0, 30, TimeUnit.SECONDS);
+
+        // run task now in background
+        getServiceManager().getService(IBackgroundService.class).execute(refreshTask);
     }
 
     private void gridSelectionChanged(final SelectionEvent<Instance> event) {
@@ -279,12 +292,12 @@ public class AppUI extends UI {
 
     private void doStart(Set<Instance> instances) {
         new Notification("Start", String.format("Starting [%s] Instance(s)", instances.size()), Notification.Type.HUMANIZED_MESSAGE, true).show(this.getPage());
-        executor.execute(startInstanceTask);
+        getServiceManager().getService(IBackgroundService.class).execute(startInstanceTask);
     }
 
     private void doStop(Set<Instance> instances) {
         new Notification("Stop", String.format("Stopping [%s] Instance(s) to stop", instances.size()), Notification.Type.HUMANIZED_MESSAGE, true).show(this.getPage());
-        executor.execute(stopInstanceTask);
+        getServiceManager().getService(IBackgroundService.class).execute(stopInstanceTask);
     }
 
     @Override
@@ -297,6 +310,10 @@ public class AppUI extends UI {
     public void detach() {
         LOG.trace("Detaching UI");
         super.detach();
+    }
+
+    public IServiceManager getServiceManager() {
+        return AppServlet.getServiceManager(VaadinServlet.getCurrent().getServletContext());
     }
 
     private class RegionCaptionGenerator implements ItemCaptionGenerator<Regions> {
