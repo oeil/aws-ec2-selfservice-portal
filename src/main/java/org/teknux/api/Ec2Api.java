@@ -1,4 +1,4 @@
-package org.teknux.api.fetcher;
+package org.teknux.api;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -7,25 +7,24 @@ import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.*;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class Ec2Fetcher {
+public class Ec2Api {
 
     private AmazonEC2 ec2;
 
-    public Ec2Fetcher(AmazonEC2 ec2) {
+    public Ec2Api(AmazonEC2 ec2) {
         this.ec2 = ec2;
     }
 
-    public static Ec2Fetcher instance() {
+    public static Ec2Api instance() {
         return instance(Regions.DEFAULT_REGION);
     }
 
-    public static Ec2Fetcher instance(Regions region) {
-        return new Ec2Fetcher(AmazonEC2ClientBuilder.standard().withCredentials(new PropertiesCredentialProvider()).withRegion(region).build());
+    public static Ec2Api instance(Regions region) {
+        return new Ec2Api(AmazonEC2ClientBuilder.standard().withCredentials(new PropertiesCredentialProvider()).withRegion(region).build());
     }
 
     public Set<Instance> instances() {

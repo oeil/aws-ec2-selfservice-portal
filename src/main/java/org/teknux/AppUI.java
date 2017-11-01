@@ -18,7 +18,7 @@ import com.vaadin.ui.themes.ValoTheme;
 import de.akquinet.engineering.vaadin.timerextension.TimerExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.teknux.api.fetcher.Ec2Fetcher;
+import org.teknux.api.Ec2Api;
 import org.teknux.api.model.Ec2States;
 import org.teknux.service.IServiceManager;
 import org.teknux.service.background.IBackgroundService;
@@ -210,7 +210,7 @@ public class AppUI extends UI {
         timerExtension.addTimerListener(timerEvent -> doRefresh());
 
         Callable<ViewModel> backgroundTask = () -> {
-            final Ec2Fetcher fetcher = Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION));
+            final Ec2Api fetcher = Ec2Api.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION));
             final Set<Instance> instances = fetcher.instances();
             final List<Address> elasticAddresses = fetcher.elasticIPs();
 
@@ -244,7 +244,7 @@ public class AppUI extends UI {
     private void setupStartTasks() {
         Callable<List<InstanceStateChange>> backgroundStartTask = () -> {
             Set<String> ids = new HashSet<>(instancesGrid.getSelectedItems().stream().map(instance -> instance.getInstanceId()).collect(Collectors.toList()));
-            return Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).startInstances(ids);
+            return Ec2Api.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).startInstances(ids);
         };
 
         //configure ui required handling after background task is done
@@ -260,7 +260,7 @@ public class AppUI extends UI {
     private void setupStopTasks() {
         Callable<List<InstanceStateChange>> backgroundStopTask = () -> {
             Set<String> ids = new HashSet<>(instancesGrid.getSelectedItems().stream().map(instance -> instance.getInstanceId()).collect(Collectors.toList()));
-            return Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).stopInstances(ids);
+            return Ec2Api.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).stopInstances(ids);
         };
 
         //configure ui required handling after background task is done
