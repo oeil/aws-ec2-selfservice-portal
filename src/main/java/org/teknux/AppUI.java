@@ -1,6 +1,7 @@
 package org.teknux;
 
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.ec2.model.Address;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceStateChange;
 import com.vaadin.annotations.Push;
@@ -41,8 +42,8 @@ public class AppUI extends UI {
 
     private static final Logger LOG = LoggerFactory.getLogger(AppUI.class);
 
-    private LongRunningTask.LongRunningTaskCallback<Set<Instance>> uiPostProcess;
-    private LongRunningTask<Set<Instance>> refreshTask;
+    private LongRunningTask.LongRunningTaskCallback<ViewModel> uiPostProcess;
+    private LongRunningTask<ViewModel> refreshTask;
 
     private LongRunningTask.LongRunningTaskCallback<List<InstanceStateChange>> startUiPostProcess;
     private LongRunningTask<List<InstanceStateChange>> startInstanceTask;
@@ -57,6 +58,8 @@ public class AppUI extends UI {
     private Button stopButton;
     private Grid<Instance> instancesGrid;
     private Label lastupdateLabel;
+
+    private ViewModel viewModel;
 
     @Override
     protected void init(VaadinRequest vaadinRequest) {
@@ -131,7 +134,15 @@ public class AppUI extends UI {
             return icon.getHtml() + String.format("<span>%s</span>", instanceState.getName());
         }, new HtmlRenderer()).setCaption("State");
         instancesGrid.addColumn(Instance::getInstanceId).setCaption("Id");
-        instancesGrid.addColumn(Instance::getPublicIpAddress).setCaption("IPv4 Public IP");
+        instancesGrid.addColumn(Instance::getPublicIpAddress, instanceAddress -> {
+            if (instanceAddress == null || instanceAddress.isEmpty()) {
+                return "";
+            }
+            boolean isElastic = viewModel.elasticIPs.stream().filter(address -> instanceAddress.equals(address.getPublicIp())).findFirst().isPresent();
+            return isElastic ? String.format("[ %s ]", instanceAddress) : instanceAddress;
+
+        }).setCaption("IPv4 Public IP");
+        instancesGrid.addColumn(Instance::getLaunchTime).setCaption("Launch Time");
 
         instancesGrid.setStyleGenerator(instance -> {
             final Ec2States state = Ec2States.fromCode(instance.getState().getCode()).get();
@@ -183,12 +194,12 @@ public class AppUI extends UI {
         setupStartTasks();
         setupStopTasks();
         setupRefreshTasks();
+
         doRefresh();
     }
 
     private static Button createButton(String caption, Button.ClickListener clickListener) {
         Button button = new Button(caption);
-        //button.addStyleNames(MaterialTheme.BUTTON_ROUND);
         button.addClickListener(clickListener);
         return button;
     }
@@ -198,22 +209,31 @@ public class AppUI extends UI {
         timerExtension.setIntervalInMs(30*1000);
         timerExtension.addTimerListener(timerEvent -> doRefresh());
 
-        Callable<Set<Instance>> backgroundTask = () -> Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION)).getInstances();
+        Callable<ViewModel> backgroundTask = () -> {
+            final Ec2Fetcher fetcher = Ec2Fetcher.instance(regionsComboBox.getSelectedItem().orElse(Regions.DEFAULT_REGION));
+            final Set<Instance> instances = fetcher.instances();
+            final List<Address> elasticAddresses = fetcher.elasticIPs();
+
+            return new ViewModel(instances, elasticAddresses);
+        };
 
         //configure ui required handling after background task is done
-        uiPostProcess = instances -> {
+        uiPostProcess = viewModel -> {
+            this.viewModel = viewModel;
+
             if (!instancesGrid.isVisible()) {
                 instancesGrid.setVisible(true);
             }
 
             Set<Instance> selectedItems = instancesGrid.asMultiSelect().getSelectedItems();
-            instancesGrid.setItems(instances);
+            instancesGrid.setItems(viewModel.getInstances());
             if (selectedItems != null) {
                 selectedItems.forEach(instance -> instancesGrid.select(instance));
             }
 
             lastupdateLabel.setValue(String.format("Lastupdate at %s", LocalDateTime.now().format(DateTimeFormatter.ISO_TIME).toString()));
             regionsComboBox.setEnabled(true);
+
             timerExtension.start();
         };
 
@@ -355,6 +375,51 @@ public class AppUI extends UI {
                     return "AWS GovCloud (US)";
             }
             return "Unknown";
+        }
+    }
+
+    private static class ViewModel {
+
+        private Set<Instance> instances;
+        private List<Address> elasticIPs;
+
+        public ViewModel(Set<Instance> instances, List<Address> elasticIPs) {
+            this.instances = instances;
+            this.elasticIPs = elasticIPs;
+        }
+
+        public Set<Instance> getInstances() {
+            return instances;
+        }
+
+        public void setInstances(Set<Instance> instances) {
+            this.instances = instances;
+        }
+
+        public List<Address> getElasticIPs() {
+            return elasticIPs;
+        }
+
+        public void setElasticIPs(List<Address> elasticIPs) {
+            this.elasticIPs = elasticIPs;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ViewModel viewModel = (ViewModel) o;
+
+            if (instances != null ? !instances.equals(viewModel.instances) : viewModel.instances != null) return false;
+            return elasticIPs != null ? elasticIPs.equals(viewModel.elasticIPs) : viewModel.elasticIPs == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = instances != null ? instances.hashCode() : 0;
+            result = 31 * result + (elasticIPs != null ? elasticIPs.hashCode() : 0);
+            return result;
         }
     }
 }

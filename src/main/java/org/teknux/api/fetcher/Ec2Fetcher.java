@@ -28,7 +28,7 @@ public class Ec2Fetcher {
         return new Ec2Fetcher(AmazonEC2ClientBuilder.standard().withCredentials(new PropertiesCredentialProvider()).withRegion(region).build());
     }
 
-    public Set<Instance> getInstances() {
+    public Set<Instance> instances() {
         DescribeInstancesResult describeInstancesRequest = ec2.describeInstances();
 
         List<Reservation> reservations = describeInstancesRequest.getReservations();
@@ -50,6 +50,11 @@ public class Ec2Fetcher {
         request.setInstanceIds(ids);
         StopInstancesResult result = ec2.stopInstances(request);
         return result.getStoppingInstances();
+    }
+
+    public List<Address> elasticIPs() {
+        DescribeAddressesResult response = ec2.describeAddresses();
+        return response.getAddresses();
     }
 
     public static class PropertiesCredentialProvider implements AWSCredentialsProvider {
