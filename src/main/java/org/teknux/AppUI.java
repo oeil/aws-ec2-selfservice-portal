@@ -21,8 +21,12 @@ import org.slf4j.LoggerFactory;
 import org.teknux.api.Ec2Api;
 import org.teknux.api.model.Ec2States;
 import org.teknux.service.IServiceManager;
+import org.teknux.service.automation.IEc2AutomationService;
+import org.teknux.service.automation.ISchedulerService;
 import org.teknux.service.background.IBackgroundService;
-import org.teknux.task.LongRunningTask;
+import org.teknux.task.LongRunningUiTask;
+import org.teknux.ui.window.ScheduleStartWindow;
+import org.teknux.ui.window.ScheduleStopWindow;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,27 +46,35 @@ public class AppUI extends UI {
 
     private static final Logger LOG = LoggerFactory.getLogger(AppUI.class);
 
-    private LongRunningTask.LongRunningTaskCallback<ViewModel> uiPostProcess;
-    private LongRunningTask<ViewModel> refreshTask;
+    private LongRunningUiTask.UiCallback<ViewModel> uiPostProcess;
+    private LongRunningUiTask<ViewModel> refreshTask;
 
-    private LongRunningTask.LongRunningTaskCallback<List<InstanceStateChange>> startUiPostProcess;
-    private LongRunningTask<List<InstanceStateChange>> startInstanceTask;
+    private LongRunningUiTask.UiCallback<List<InstanceStateChange>> startUiPostProcess;
+    private LongRunningUiTask<List<InstanceStateChange>> startInstanceTask;
 
-    private LongRunningTask.LongRunningTaskCallback<List<InstanceStateChange>> stopUiPostProcess;
-    private LongRunningTask<List<InstanceStateChange>> stopInstanceTask;
+    private LongRunningUiTask.UiCallback<List<InstanceStateChange>> stopUiPostProcess;
+    private LongRunningUiTask<List<InstanceStateChange>> stopInstanceTask;
 
     private TimerExtension timerExtension;
 
     private ComboBox<Regions> regionsComboBox;
     private Button startButton;
     private Button stopButton;
+    private Button scheduleStartButton;
+    private Button scheduleStopButton;
     private Grid<Instance> instancesGrid;
     private Label lastupdateLabel;
 
     private ViewModel viewModel;
 
+    private IBackgroundService backgroundService;
+    private IEc2AutomationService ec2AutomationService;
+
     @Override
     protected void init(VaadinRequest vaadinRequest) {
+        backgroundService = getServiceManager().getService(IBackgroundService.class);
+        ec2AutomationService = getServiceManager().getService(IEc2AutomationService.class);
+
         final VerticalLayout rootLayout = new VerticalLayout();
         rootLayout.setMargin(true);
         rootLayout.setSpacing(true);
@@ -96,15 +108,43 @@ public class AppUI extends UI {
         topLayout.addComponents(topButtonsLayout);
         topLayout.setComponentAlignment(topButtonsLayout, Alignment.MIDDLE_RIGHT);
 
+        CssLayout startBtnGroup = new CssLayout();
+        startBtnGroup.addStyleName(ValoTheme.LAYOUT_COMPONENT_GROUP);
         startButton = createButton("Start", event -> doStart(instancesGrid.getSelectedItems()));
+        startButton.setIcon(VaadinIcons.PLAY);
         startButton.addStyleName(ValoTheme.BUTTON_PRIMARY);
         startButton.setEnabled(false);
+        startBtnGroup.addComponent(startButton);
 
+        scheduleStartButton = createButton("", event -> {
+            Window scheduleStartWindow = new ScheduleStartWindow(instancesGrid.getSelectedItems(), regionsComboBox.getSelectedItem().get(), ec2AutomationService);
+            scheduleStartWindow.addCloseListener(e -> doRefresh());
+            this.addWindow(scheduleStartWindow);
+        });
+        scheduleStartButton.setIcon(VaadinIcons.CLOCK);
+        scheduleStartButton.addStyleName(ValoTheme.BUTTON_PRIMARY);
+        scheduleStartButton.setEnabled(false);
+        startBtnGroup.addComponent(scheduleStartButton);
+
+        CssLayout stopBtnGroup = new CssLayout();
+        stopBtnGroup.addStyleName(ValoTheme.LAYOUT_COMPONENT_GROUP);
         stopButton = createButton("Stop", event -> doStop(instancesGrid.getSelectedItems()));
+        stopButton.setIcon(VaadinIcons.PAUSE);
         stopButton.addStyleName(ValoTheme.BUTTON_DANGER);
         stopButton.setEnabled(false);
+        stopBtnGroup.addComponent(stopButton);
 
-        topButtonsLayout.addComponents(startButton, stopButton);
+        scheduleStopButton = createButton("", event -> {
+            Window scheduleStopWindow = new ScheduleStopWindow(instancesGrid.getSelectedItems(), regionsComboBox.getSelectedItem().get(), ec2AutomationService);
+            scheduleStopWindow.addCloseListener(e -> doRefresh());
+            this.addWindow(scheduleStopWindow);
+        });
+        scheduleStopButton.setIcon(VaadinIcons.CLOCK);
+        scheduleStopButton.addStyleName(ValoTheme.BUTTON_DANGER);
+        scheduleStopButton.setEnabled(false);
+        stopBtnGroup.addComponent(scheduleStopButton);
+
+        topButtonsLayout.addComponents(startBtnGroup, stopBtnGroup);
 
         // ec2 instances grid
         instancesGrid = new Grid<>();
@@ -143,6 +183,23 @@ public class AppUI extends UI {
 
         }).setCaption("IPv4 Public IP");
         instancesGrid.addColumn(Instance::getLaunchTime).setCaption("Launch Time");
+        instancesGrid.addColumn(Instance::getInstanceId, instanceId -> {
+            ISchedulerService.Schedule schedule = ec2AutomationService.getStartSchedule(instanceId);
+            if (schedule == null) {
+                return "-";
+            } else {
+                return schedule.when().format(DateTimeFormatter.ISO_DATE_TIME);
+            }
+        }).setCaption("Scheduled Start");
+
+        instancesGrid.addColumn(Instance::getInstanceId, instanceId -> {
+            ISchedulerService.Schedule schedule = ec2AutomationService.getStopSchedule(instanceId);
+            if (schedule == null) {
+                return "-";
+            } else {
+                return schedule.when().format(DateTimeFormatter.ISO_DATE_TIME);
+            }
+        }).setCaption("Scheduled Stop");
 
         instancesGrid.setStyleGenerator(instance -> {
             final Ec2States state = Ec2States.fromCode(instance.getState().getCode()).get();
@@ -238,7 +295,7 @@ public class AppUI extends UI {
         };
 
         //configure overall recurrent task (background data fetch + ui update)
-        refreshTask = new LongRunningTask<>(backgroundTask, uiPostProcess, instancesGrid);
+        refreshTask = new LongRunningUiTask<>(backgroundTask, uiPostProcess, instancesGrid);
     }
 
     private void setupStartTasks() {
@@ -254,7 +311,7 @@ public class AppUI extends UI {
         };
 
         //configure overall recurrent task (background data fetch + ui update)
-        startInstanceTask = new LongRunningTask<>(backgroundStartTask, startUiPostProcess, instancesGrid);
+        startInstanceTask = new LongRunningUiTask<>(backgroundStartTask, startUiPostProcess, instancesGrid);
     }
 
     private void setupStopTasks() {
@@ -270,7 +327,7 @@ public class AppUI extends UI {
         };
 
         //configure overall recurrent task (background data fetch + ui update)
-        stopInstanceTask = new LongRunningTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid)  ;
+        stopInstanceTask = new LongRunningUiTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid)  ;
     }
 
     private List<Regions> regions(Regions... exclude) {
@@ -285,10 +342,12 @@ public class AppUI extends UI {
         lastupdateLabel.setValue("loading ...");
         regionsComboBox.setEnabled(false);
         startButton.setEnabled(false);
+        scheduleStartButton.setEnabled(false);
         stopButton.setEnabled(false);
+        scheduleStopButton.setEnabled(false);
 
         // run task now in background
-        getServiceManager().getService(IBackgroundService.class).execute(refreshTask);
+        backgroundService.execute(refreshTask);
     }
 
     private void gridSelectionChanged(final SelectionEvent<Instance> event) {
@@ -300,24 +359,28 @@ public class AppUI extends UI {
         if (selection == null || selection.isEmpty()) {
             startButton.setEnabled(false);
             stopButton.setEnabled(false);
+            scheduleStartButton.setEnabled(false);
+            scheduleStopButton.setEnabled(false);
             return;
         }
 
         boolean isStopped = selection.stream().allMatch(instance -> instance.getState().getCode() == Ec2States.STOPPED.getCode());
         startButton.setEnabled(isStopped);
+        scheduleStartButton.setEnabled(isStopped);
 
         boolean isStarted = selection.stream().allMatch(instance -> instance.getState().getCode() == Ec2States.RUNNING.getCode());
         stopButton.setEnabled(isStarted);
+        scheduleStopButton.setEnabled(isStarted);
     }
 
     private void doStart(Set<Instance> instances) {
         new Notification("Start", String.format("Starting [%s] Instance(s)", instances.size()), Notification.Type.HUMANIZED_MESSAGE, true).show(this.getPage());
-        getServiceManager().getService(IBackgroundService.class).execute(startInstanceTask);
+        backgroundService.execute(startInstanceTask);
     }
 
     private void doStop(Set<Instance> instances) {
         new Notification("Stop", String.format("Stopping [%s] Instance(s) to stop", instances.size()), Notification.Type.HUMANIZED_MESSAGE, true).show(this.getPage());
-        getServiceManager().getService(IBackgroundService.class).execute(stopInstanceTask);
+        backgroundService.execute(stopInstanceTask);
     }
 
     @Override

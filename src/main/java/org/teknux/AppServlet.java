@@ -6,6 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.teknux.service.IServiceManager;
 import org.teknux.service.ServiceManager;
+import org.teknux.service.automation.Ec2AutomationServiceImpl;
+import org.teknux.service.automation.IEc2AutomationService;
+import org.teknux.service.automation.ISchedulerService;
+import org.teknux.service.automation.SchedulerServiceImpl;
 import org.teknux.service.background.BackgroundServiceImpl;
 import org.teknux.service.background.IBackgroundService;
 
@@ -43,6 +47,8 @@ public class AppServlet extends VaadinServlet implements SessionInitListener, Se
             getServletContext().setAttribute(CONTEXT_ATTRIBUTE_SERVICE_MANAGER, serviceManager);
 
             serviceManager.addService(IBackgroundService.class, new BackgroundServiceImpl());
+            serviceManager.addService(ISchedulerService.class, new SchedulerServiceImpl());
+            serviceManager.addService(IEc2AutomationService.class, new Ec2AutomationServiceImpl());
 
             serviceManager.start();
 

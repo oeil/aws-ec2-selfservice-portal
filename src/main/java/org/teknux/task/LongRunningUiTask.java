@@ -10,16 +10,16 @@ import org.slf4j.LoggerFactory;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.Callable;
 
-public class LongRunningTask<Result> implements Runnable {
+public class LongRunningUiTask<Result> implements Runnable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LongRunningTask.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LongRunningUiTask.class);
 
     private Callable<Result> actualWork;
-    private WeakReference<LongRunningTaskCallback<Result>> weakCallback;
+    private WeakReference<UiCallback<Result>> weakCallback;
     private WeakReference<Component> weakUI;
     private CancelListener cancelListener;
 
-    public LongRunningTask(Callable<Result> longOperation, LongRunningTaskCallback<Result> uiCallback, Component ui) {
+    public LongRunningUiTask(Callable<Result> longOperation, UiCallback<Result> uiCallback, Component ui) {
         this.actualWork = longOperation;
         this.weakCallback = new WeakReference<>(uiCallback);
         this.weakUI = new WeakReference<>(ui);
@@ -32,7 +32,7 @@ public class LongRunningTask<Result> implements Runnable {
             Result longRunningOperationResult = actualWork.call();
             LOG.trace("### Background Task Done ###");
 
-            final LongRunningTaskCallback<Result> callback = weakCallback.get();
+            final UiCallback<Result> callback = weakCallback.get();
             final Component uiComponent = weakUI.get();
 
             if (callback != null && uiComponent != null) {
@@ -71,11 +71,11 @@ public class LongRunningTask<Result> implements Runnable {
         this.cancelListener = cancelListener;
     }
 
-    public interface LongRunningTaskCallback<Result> {
+    public interface UiCallback<Result> {
         void done(Result result);
     }
 
-    public interface CancelListener<Task extends LongRunningTask<?>> {
+    public interface CancelListener<Task extends LongRunningUiTask<?>> {
         void cancel(Task t);
     }
 }

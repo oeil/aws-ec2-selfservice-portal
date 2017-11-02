@@ -103,12 +103,6 @@
 			<version>${timerextension.version}</version>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-collections4</artifactId>
-			<version>4.1</version>
-		</dependency>
-
 	</dependencies>
 
 	<build>
