@@ -1,9 +1,16 @@
-aws-ec2-selfservice
+AWS EC2 Self Service Portal
 ==============
 
 Simple AWS EC2 Web Portal to control Instances (view, start, stop ...). 
 
 Also provide easy to use simple scheduling features to plan on starting specific ec2 instances for 1 hour, 5 hours, next week of work... And also schedule instances to stop in hour(s) ...
+
+Screenshots
+========
+
+![Image of Aws EC2 Self Service](https://raw.githubusercontent.com/oeil/aws-ec2-selfservice-portal/master/screenshots/AwsEc2SelfService.png)
+
+![Image of Aws EC2 Self Service - Schedule Instance Start](https://raw.githubusercontent.com/oeil/aws-ec2-selfservice-portal/master/screenshots/AwsEc2SelfServiceScheduleStart.png)
 
 
 Workflow
