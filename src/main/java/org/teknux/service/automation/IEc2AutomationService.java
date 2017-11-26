@@ -11,6 +11,10 @@ public interface IEc2AutomationService extends IService {
 
     void stopOn(String instanceId, Regions region, ISchedulerService.Schedule scheduleToStop);
 
+    void cancelPlans(String instanceId);
+
+    boolean hasPlan(String instanceId);
+
     ISchedulerService.Schedule getStartSchedule(String instanceId);
 
     ISchedulerService.Schedule getStopSchedule(String instanceId);

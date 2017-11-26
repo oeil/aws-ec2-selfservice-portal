@@ -12,7 +12,7 @@ public interface ISchedulerService extends IService {
 
     Collection<Runnable> planned();
 
-    Optional<Schedule> find(Runnable task);
+    Schedule find(Runnable task);
 
     void cancel(Runnable task);
 

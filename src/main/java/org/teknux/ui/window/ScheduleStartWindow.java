@@ -10,6 +10,7 @@ import org.teknux.service.automation.Schedule;
 
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Set;
 
@@ -39,16 +40,21 @@ public class ScheduleStartWindow extends AbstractInstancesActionWindow {
         });
 
         Button workweekBtn = createButton("Current Work Week", event1 -> {
-            final LocalDateTime startOfWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
-            final LocalDateTime endOfWeek = startOfWeek.with(TemporalAdjusters.next(DayOfWeek.SATURDAY));
+            final LocalDateTime startOfWeek = LocalDateTime.now();
+            final LocalDateTime endOfWeek = startOfWeek.toLocalDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY)).atStartOfDay();
 
             doScheduleRunBetween(getSelection(), getRegion(), new Schedule(startOfWeek), new Schedule(endOfWeek));
             close();
         });
+        final DayOfWeek todayDay = LocalDateTime.now().getDayOfWeek();
+        if (todayDay.equals(DayOfWeek.SATURDAY) || todayDay.equals(DayOfWeek.SUNDAY)) {
+            workweekBtn.setEnabled(false);
+        }
+
 
         Button nextWorkweekBtn = createButton("Next Work Week", event1 -> {
-            final LocalDateTime nextStartOfWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
-            final LocalDateTime nextEndOfWeek = nextStartOfWeek.with(TemporalAdjusters.next(DayOfWeek.SATURDAY));
+            final LocalDateTime nextStartOfWeek = LocalDateTime.now().toLocalDate().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).atStartOfDay();
+            final LocalDateTime nextEndOfWeek = nextStartOfWeek.toLocalDate().with(TemporalAdjusters.next(DayOfWeek.SATURDAY)).atStartOfDay();
 
             doScheduleRunBetween(getSelection(), getRegion(), new Schedule(nextStartOfWeek), new Schedule(nextEndOfWeek));
             close();
@@ -56,7 +62,7 @@ public class ScheduleStartWindow extends AbstractInstancesActionWindow {
 
         Button forOneMonthBtn = createButton("1 Month", event1 -> {
             final LocalDateTime now = LocalDateTime.now();
-            final LocalDateTime nextMonth = now.plusMonths(1);
+            final LocalDateTime nextMonth = now.toLocalDate().plusMonths(1).atStartOfDay();
 
             doScheduleRunBetween(getSelection(), getRegion(), new Schedule(now), new Schedule(nextMonth));
             close();

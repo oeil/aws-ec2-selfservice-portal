@@ -14,6 +14,7 @@ import com.vaadin.server.VaadinServlet;
 import com.vaadin.shared.communication.PushMode;
 import com.vaadin.ui.*;
 import com.vaadin.ui.renderers.HtmlRenderer;
+import com.vaadin.ui.renderers.LocalDateTimeRenderer;
 import com.vaadin.ui.themes.ValoTheme;
 import de.akquinet.engineering.vaadin.timerextension.TimerExtension;
 import org.slf4j.Logger;
@@ -30,6 +31,7 @@ import org.teknux.ui.window.ScheduleStopWindow;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +47,7 @@ import java.util.stream.Collectors;
 public class AppUI extends UI {
 
     private static final Logger LOG = LoggerFactory.getLogger(AppUI.class);
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private LongRunningUiTask.UiCallback<ViewModel> uiPostProcess;
     private LongRunningUiTask<ViewModel> refreshTask;
@@ -62,6 +65,7 @@ public class AppUI extends UI {
     private Button stopButton;
     private Button scheduleStartButton;
     private Button scheduleStopButton;
+    private Button cancelButton;
     private Grid<Instance> instancesGrid;
     private Label lastupdateLabel;
 
@@ -144,7 +148,12 @@ public class AppUI extends UI {
         scheduleStopButton.setEnabled(false);
         stopBtnGroup.addComponent(scheduleStopButton);
 
-        topButtonsLayout.addComponents(startBtnGroup, stopBtnGroup);
+        cancelButton = createButton("Clear", event -> doCancel(instancesGrid.getSelectedItems()));;
+        cancelButton.setIcon(VaadinIcons.CALENDAR_CLOCK);
+        cancelButton.addStyleName(ValoTheme.BUTTON_FRIENDLY);
+        cancelButton.setEnabled(false);
+
+        topButtonsLayout.addComponents(startBtnGroup, stopBtnGroup, cancelButton);
 
         // ec2 instances grid
         instancesGrid = new Grid<>();
@@ -188,7 +197,7 @@ public class AppUI extends UI {
             if (schedule == null) {
                 return "-";
             } else {
-                return schedule.when().format(DateTimeFormatter.ISO_DATE_TIME);
+                return schedule.when().format(DATE_TIME_FORMATTER);
             }
         }).setCaption("Scheduled Start");
 
@@ -197,7 +206,7 @@ public class AppUI extends UI {
             if (schedule == null) {
                 return "-";
             } else {
-                return schedule.when().format(DateTimeFormatter.ISO_DATE_TIME);
+                return schedule.when().format(DATE_TIME_FORMATTER);
             }
         }).setCaption("Scheduled Stop");
 
@@ -327,7 +336,7 @@ public class AppUI extends UI {
         };
 
         //configure overall recurrent task (background data fetch + ui update)
-        stopInstanceTask = new LongRunningUiTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid)  ;
+        stopInstanceTask = new LongRunningUiTask<>(backgroundStopTask, stopUiPostProcess, instancesGrid);
     }
 
     private List<Regions> regions(Regions... exclude) {
@@ -338,14 +347,7 @@ public class AppUI extends UI {
         if (timerExtension.isStarted()) {
             timerExtension.stop();
         }
-
         lastupdateLabel.setValue("loading ...");
-        regionsComboBox.setEnabled(false);
-        startButton.setEnabled(false);
-        scheduleStartButton.setEnabled(false);
-        stopButton.setEnabled(false);
-        scheduleStopButton.setEnabled(false);
-
         // run task now in background
         backgroundService.execute(refreshTask);
     }
@@ -361,6 +363,7 @@ public class AppUI extends UI {
             stopButton.setEnabled(false);
             scheduleStartButton.setEnabled(false);
             scheduleStopButton.setEnabled(false);
+            cancelButton.setEnabled(false);
             return;
         }
 
@@ -371,6 +374,8 @@ public class AppUI extends UI {
         boolean isStarted = selection.stream().allMatch(instance -> instance.getState().getCode() == Ec2States.RUNNING.getCode());
         stopButton.setEnabled(isStarted);
         scheduleStopButton.setEnabled(isStarted);
+
+        cancelButton.setEnabled(selection.stream().anyMatch(instance -> ec2AutomationService.hasPlan(instance.getInstanceId())));
     }
 
     private void doStart(Set<Instance> instances) {
@@ -381,6 +386,12 @@ public class AppUI extends UI {
     private void doStop(Set<Instance> instances) {
         new Notification("Stop", String.format("Stopping [%s] Instance(s) to stop", instances.size()), Notification.Type.HUMANIZED_MESSAGE, true).show(this.getPage());
         backgroundService.execute(stopInstanceTask);
+    }
+
+    private void doCancel(Set<Instance> selectedItems) {
+        selectedItems.stream().forEach(instance -> ec2AutomationService.cancelPlans(instance.getInstanceId()));
+        instancesGrid.deselectAll();
+        doRefresh();
     }
 
     @Override

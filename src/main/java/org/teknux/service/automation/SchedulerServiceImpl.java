@@ -25,6 +25,10 @@ public class SchedulerServiceImpl implements ISchedulerService {
 
     @Override
     public void plan(Runnable task, Schedule schedule) {
+        if (task == null || schedule == null) {
+            return;
+        }
+
         tasks.put(schedule, task);
     }
 
@@ -34,17 +38,28 @@ public class SchedulerServiceImpl implements ISchedulerService {
     }
 
     @Override
-    public Optional<Schedule> find(Runnable task) {
+    public Schedule find(Runnable task) {
+        if(task == null) {
+            return null;
+        }
+
         Optional<Map.Entry<Schedule, Runnable>> entry = tasks.entrySet().stream().filter(scheduleRunnableEntry -> scheduleRunnableEntry.getValue().equals(task)).findFirst();
         if (entry.isPresent()) {
-            return Optional.of(entry.get().getKey());
+            return entry.get().getKey();
         }
-        return Optional.of(null);
+        return null;
     }
 
     @Override
     public void cancel(Runnable task) {
-        tasks.remove(task);
+        if (task == null) {
+            return;
+        }
+
+        if (tasks.containsValue(task)) {
+            final Schedule key = find(task);
+            tasks.remove(key);
+        }
     }
 
     @Override

@@ -39,15 +39,13 @@ public class ScheduleStopWindow extends ScheduleStartWindow {
 
         Button workweekBtn = createButton("5 Days", event1 -> {
             final LocalDateTime now = LocalDateTime.now();
-            doScheduleStop(getSelection(), getRegion(), new Schedule(now.plusDays(5)));
+            doScheduleStop(getSelection(), getRegion(), new Schedule(now.toLocalDate().plusDays(5).atStartOfDay()));
             close();
         });
 
         Button nextMonthBtn = createButton("1 Month", event1 -> {
-            final LocalDateTime now = LocalDateTime.now();
-            final LocalDateTime inOneMonth = now.plusMonths(1);
-
-            doScheduleRunBetween(getSelection(), getRegion(), new Schedule(now), new Schedule(inOneMonth));
+            final LocalDateTime inOneMonth = LocalDateTime.now().toLocalDate().plusMonths(1).atStartOfDay();
+            doScheduleStop(getSelection(), getRegion(), new Schedule(inOneMonth));
             close();
         });
 
