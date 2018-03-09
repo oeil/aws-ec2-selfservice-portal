@@ -4,6 +4,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.model.Address;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceStateChange;
+import com.amazonaws.services.ec2.model.Tag;
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
 import com.vaadin.event.selection.SelectionEvent;
@@ -32,12 +33,11 @@ import org.teknux.ui.window.ScheduleStopWindow;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
+
+import static org.teknux.api.model.Ec2States.UNKNOWN;
 
 /**
  *
@@ -157,9 +157,9 @@ public class AppUI extends UI {
 
         // ec2 instances grid
         instancesGrid = new Grid<>();
-        instancesGrid.addColumn(Instance::getTags, tags -> tags.stream().filter(tag -> tag.getKey().toLowerCase().equals("name")).findFirst().get().getValue()).setCaption("Name");
+        instancesGrid.addColumn(Instance::getTags, tags -> tags.stream().filter(tag -> tag.getKey().toLowerCase().equals("name")).findFirst().orElse(new Tag()).getValue()).setCaption("Name");
         instancesGrid.addColumn(Instance::getState, instanceState -> {
-            final Ec2States ec2States= Ec2States.fromCode(instanceState.getCode()).get();
+            final Ec2States ec2States= Ec2States.fromCode(instanceState.getCode()).orElse(UNKNOWN);
             FontIcon icon = VaadinIcons.QUESTION;
             if (ec2States != null) {
                 switch (ec2States) {
@@ -211,7 +211,7 @@ public class AppUI extends UI {
         }).setCaption("Scheduled Stop");
 
         instancesGrid.setStyleGenerator(instance -> {
-            final Ec2States state = Ec2States.fromCode(instance.getState().getCode()).get();
+            final Ec2States state = Ec2States.fromCode(instance.getState().getCode()).orElse(UNKNOWN);
             if (state != null) {
                 switch (state) {
                     case PENDING:

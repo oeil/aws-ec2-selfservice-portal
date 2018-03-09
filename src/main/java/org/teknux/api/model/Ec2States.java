@@ -5,8 +5,10 @@ import java.util.Optional;
 
 public enum Ec2States {
 
+    UNKNOWN(-1),
     PENDING(0),
     RUNNING(16),
+    //RUNNING_2(272),
     SHUTTING_DOWN(32),
     TERMINATED(48),
     STOPPING(64),
